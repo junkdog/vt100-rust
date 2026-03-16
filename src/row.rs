@@ -29,10 +29,13 @@ impl Row {
         self.wrapped = false;
     }
 
-    fn cells(&self) -> impl Iterator<Item = &crate::Cell> {
+    /// Returns an iterator over the cells in this row.
+    pub fn cells(&self) -> impl Iterator<Item = &crate::Cell> {
         self.cells.iter()
     }
 
+    /// Returns the [`Cell`](crate::Cell) at the given column index, if it
+    /// exists.
     pub fn get(&self, col: u16) -> Option<&crate::Cell> {
         self.cells.get(usize::from(col))
     }

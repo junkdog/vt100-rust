@@ -528,6 +528,14 @@ impl Screen {
         // straightforward.
     }
 
+    /// Returns an iterator over the visible rows of the terminal.
+    ///
+    /// This provides O(1) access to each row, avoiding the O(row) cost
+    /// of repeated [`cell`](Screen::cell) calls.
+    pub fn visible_rows(&self) -> impl Iterator<Item = &crate::row::Row> {
+        self.grid().visible_rows()
+    }
+
     /// Returns the [`Cell`](crate::Cell) object at the given location in the
     /// terminal, if it exists.
     #[must_use]
