@@ -29,14 +29,17 @@ pub struct Attrs {
 }
 
 impl Attrs {
+    #[inline]
     pub fn bold(&self) -> bool {
         self.mode & TEXT_MODE_BOLD != 0
     }
 
+    #[inline]
     pub fn dim(&self) -> bool {
         self.mode & TEXT_MODE_DIM != 0
     }
 
+    #[inline]
     fn intensity(&self) -> u8 {
         self.mode & TEXT_MODE_INTENSITY
     }
@@ -55,6 +58,7 @@ impl Attrs {
         self.mode &= !TEXT_MODE_INTENSITY;
     }
 
+    #[inline]
     pub fn italic(&self) -> bool {
         self.mode & TEXT_MODE_ITALIC != 0
     }
@@ -67,6 +71,7 @@ impl Attrs {
         }
     }
 
+    #[inline]
     pub fn underline(&self) -> bool {
         self.mode & TEXT_MODE_UNDERLINE != 0
     }
@@ -79,6 +84,7 @@ impl Attrs {
         }
     }
 
+    #[inline]
     pub fn inverse(&self) -> bool {
         self.mode & TEXT_MODE_INVERSE != 0
     }

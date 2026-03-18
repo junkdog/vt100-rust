@@ -38,6 +38,7 @@ impl Cell {
         }
     }
 
+    #[inline]
     fn len(&self) -> usize {
         usize::from(self.len & LEN_BITS)
     }
@@ -85,18 +86,21 @@ impl Cell {
     /// width.
     // Since contents has been constructed by appending chars encoded as UTF-8 it will be valid UTF-8
     #[allow(clippy::missing_panics_doc)]
+    #[inline]
     #[must_use]
     pub fn contents(&self) -> &str {
         std::str::from_utf8(&self.contents[..self.len()]).unwrap()
     }
 
     /// Returns whether the cell contains any text data.
+    #[inline]
     #[must_use]
     pub fn has_contents(&self) -> bool {
         self.len() > 0
     }
 
     /// Returns whether the text data in the cell represents a wide character.
+    #[inline]
     #[must_use]
     pub fn is_wide(&self) -> bool {
         self.len & IS_WIDE != 0
@@ -105,6 +109,7 @@ impl Cell {
     /// Returns whether the cell contains the second half of a wide character
     /// (in other words, whether the previous cell in the row contains a wide
     /// character)
+    #[inline]
     #[must_use]
     pub fn is_wide_continuation(&self) -> bool {
         self.len & IS_WIDE_CONTINUATION != 0
@@ -126,17 +131,20 @@ impl Cell {
         }
     }
 
+    #[inline]
     pub(crate) fn attrs(&self) -> &crate::attrs::Attrs {
         &self.attrs
     }
 
     /// Returns the foreground color of the cell.
+    #[inline]
     #[must_use]
     pub fn fgcolor(&self) -> crate::Color {
         self.attrs.fgcolor
     }
 
     /// Returns the background color of the cell.
+    #[inline]
     #[must_use]
     pub fn bgcolor(&self) -> crate::Color {
         self.attrs.bgcolor
@@ -144,6 +152,7 @@ impl Cell {
 
     /// Returns whether the cell should be rendered with the bold text
     /// attribute.
+    #[inline]
     #[must_use]
     pub fn bold(&self) -> bool {
         self.attrs.bold()
@@ -151,6 +160,7 @@ impl Cell {
 
     /// Returns whether the cell should be rendered with the dim text
     /// attribute.
+    #[inline]
     #[must_use]
     pub fn dim(&self) -> bool {
         self.attrs.dim()
@@ -158,6 +168,7 @@ impl Cell {
 
     /// Returns whether the cell should be rendered with the italic text
     /// attribute.
+    #[inline]
     #[must_use]
     pub fn italic(&self) -> bool {
         self.attrs.italic()
@@ -165,6 +176,7 @@ impl Cell {
 
     /// Returns whether the cell should be rendered with the underlined text
     /// attribute.
+    #[inline]
     #[must_use]
     pub fn underline(&self) -> bool {
         self.attrs.underline()
@@ -172,6 +184,7 @@ impl Cell {
 
     /// Returns whether the cell should be rendered with the inverse text
     /// attribute.
+    #[inline]
     #[must_use]
     pub fn inverse(&self) -> bool {
         self.attrs.inverse()

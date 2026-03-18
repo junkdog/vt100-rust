@@ -14,6 +14,7 @@ impl Row {
         }
     }
 
+    #[inline]
     fn cols(&self) -> u16 {
         self.cells
             .len()
@@ -30,16 +31,19 @@ impl Row {
     }
 
     /// Returns an iterator over the cells in this row.
+    #[inline]
     pub fn cells(&self) -> impl Iterator<Item = &crate::Cell> {
         self.cells.iter()
     }
 
     /// Returns the [`Cell`](crate::Cell) at the given column index, if it
     /// exists.
+    #[inline]
     pub fn get(&self, col: u16) -> Option<&crate::Cell> {
         self.cells.get(usize::from(col))
     }
 
+    #[inline]
     pub fn get_mut(&mut self, col: u16) -> Option<&mut crate::Cell> {
         self.cells.get_mut(usize::from(col))
     }
@@ -78,10 +82,12 @@ impl Row {
         self.wrapped = false;
     }
 
+    #[inline]
     pub fn wrap(&mut self, wrap: bool) {
         self.wrapped = wrap;
     }
 
+    #[inline]
     pub fn wrapped(&self) -> bool {
         self.wrapped
     }
