@@ -132,7 +132,7 @@ impl Cell {
     }
 
     #[inline]
-    pub(crate) fn attrs(&self) -> &crate::attrs::Attrs {
+    pub fn attrs(&self) -> &crate::attrs::Attrs {
         &self.attrs
     }
 
