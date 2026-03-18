@@ -13,6 +13,7 @@ pub struct Grid {
     scrollback: std::collections::VecDeque<crate::row::Row>,
     scrollback_len: usize,
     scrollback_offset: usize,
+    dirty: crate::dirty::DirtyRows,
 }
 
 impl Grid {
@@ -29,7 +30,22 @@ impl Grid {
             scrollback: std::collections::VecDeque::new(),
             scrollback_len,
             scrollback_offset: 0,
+            dirty: crate::dirty::DirtyRows::default(),
         }
+    }
+
+    pub fn dirty(&self) -> &crate::dirty::DirtyRows {
+        &self.dirty
+    }
+
+    pub fn dirty_mut(&mut self) -> &mut crate::dirty::DirtyRows {
+        &mut self.dirty
+    }
+
+    pub fn take_dirty(&mut self) -> crate::dirty::DirtyRows {
+        let d = self.dirty;
+        self.dirty.clear();
+        d
     }
 
     pub fn allocate_rows(&mut self) {
@@ -40,6 +56,7 @@ impl Grid {
                 })
                 .take(usize::from(self.size.rows)),
             );
+            self.dirty.mark_all();
         }
     }
 
@@ -57,6 +74,7 @@ impl Grid {
         self.scroll_bottom = self.size.rows - 1;
         self.origin_mode = false;
         self.saved_origin_mode = false;
+        self.dirty.mark_all();
     }
 
     pub fn size(&self) -> Size {
@@ -97,6 +115,8 @@ impl Grid {
         if self.saved_pos.col > self.size.cols - 1 {
             self.saved_pos.col = self.size.cols - 1;
         }
+
+        self.dirty.mark_all();
     }
 
     pub fn pos(&self) -> Pos {
@@ -183,6 +203,7 @@ impl Grid {
     }
 
     pub fn drawing_cell_mut(&mut self, pos: Pos) -> Option<&mut crate::Cell> {
+        self.dirty.mark(pos.row);
         self.drawing_row_mut(pos.row)
             .and_then(|r| r.get_mut(pos.col))
     }
@@ -456,6 +477,7 @@ impl Grid {
         for row in self.drawing_rows_mut() {
             row.clear(attrs);
         }
+        self.dirty.mark_all();
     }
 
     pub fn erase_all_forward(&mut self, attrs: crate::attrs::Attrs) {
@@ -463,6 +485,7 @@ impl Grid {
         for row in self.drawing_rows_mut().skip(usize::from(pos.row) + 1) {
             row.clear(attrs);
         }
+        self.dirty.mark_range(pos.row, self.size.rows - 1);
 
         self.erase_row_forward(attrs);
     }
@@ -472,17 +495,20 @@ impl Grid {
         for row in self.drawing_rows_mut().take(usize::from(pos.row)) {
             row.clear(attrs);
         }
+        self.dirty.mark_range(0, pos.row);
 
         self.erase_row_backward(attrs);
     }
 
     pub fn erase_row(&mut self, attrs: crate::attrs::Attrs) {
+        self.dirty.mark(self.pos.row);
         self.current_row_mut().clear(attrs);
     }
 
     pub fn erase_row_forward(&mut self, attrs: crate::attrs::Attrs) {
         let size = self.size;
         let pos = self.pos;
+        self.dirty.mark(pos.row);
         let row = self.current_row_mut();
         for col in pos.col..size.cols {
             row.erase(col, attrs);
@@ -492,6 +518,7 @@ impl Grid {
     pub fn erase_row_backward(&mut self, attrs: crate::attrs::Attrs) {
         let size = self.size;
         let pos = self.pos;
+        self.dirty.mark(pos.row);
         let row = self.current_row_mut();
         for col in 0..=pos.col.min(size.cols - 1) {
             row.erase(col, attrs);
@@ -501,6 +528,7 @@ impl Grid {
     pub fn insert_cells(&mut self, count: u16) {
         let size = self.size;
         let pos = self.pos;
+        self.dirty.mark(pos.row);
         let wide = pos.col < size.cols
             && self
                 .drawing_cell(pos)
@@ -525,6 +553,7 @@ impl Grid {
     pub fn delete_cells(&mut self, count: u16) {
         let size = self.size;
         let pos = self.pos;
+        self.dirty.mark(pos.row);
         let row = self.current_row_mut();
         for _ in 0..(count.min(size.cols - pos.col)) {
             row.remove(pos.col);
@@ -535,6 +564,7 @@ impl Grid {
     pub fn erase_cells(&mut self, count: u16, attrs: crate::attrs::Attrs) {
         let size = self.size;
         let pos = self.pos;
+        self.dirty.mark(pos.row);
         let row = self.current_row_mut();
         for col in pos.col..((pos.col.saturating_add(count)).min(size.cols)) {
             row.erase(col, attrs);
@@ -542,6 +572,7 @@ impl Grid {
     }
 
     pub fn insert_lines(&mut self, count: u16) {
+        self.dirty.mark_range(self.pos.row, self.scroll_bottom);
         for _ in 0..count {
             self.rows.remove(usize::from(self.scroll_bottom));
             self.rows.insert(usize::from(self.pos.row), self.new_row());
@@ -551,6 +582,7 @@ impl Grid {
     }
 
     pub fn delete_lines(&mut self, count: u16) {
+        self.dirty.mark_range(self.pos.row, self.scroll_bottom);
         for _ in 0..(count.min(self.size.rows - self.pos.row)) {
             self.rows
                 .insert(usize::from(self.scroll_bottom) + 1, self.new_row());
@@ -559,6 +591,7 @@ impl Grid {
     }
 
     pub fn scroll_up(&mut self, count: u16) {
+        self.dirty.mark_range(self.scroll_top, self.scroll_bottom);
         for _ in 0..(count.min(self.size.rows - self.scroll_top)) {
             self.rows
                 .insert(usize::from(self.scroll_bottom) + 1, self.new_row());
@@ -577,6 +610,7 @@ impl Grid {
     }
 
     pub fn scroll_down(&mut self, count: u16) {
+        self.dirty.mark_range(self.scroll_top, self.scroll_bottom);
         for _ in 0..count {
             self.rows.remove(usize::from(self.scroll_bottom));
             self.rows

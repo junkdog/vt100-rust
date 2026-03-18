@@ -50,6 +50,7 @@
 mod attrs;
 mod callbacks;
 mod cell;
+mod dirty;
 mod grid;
 mod parser;
 mod perform;
@@ -60,6 +61,7 @@ mod term;
 pub use attrs::Color;
 pub use callbacks::Callbacks;
 pub use cell::Cell;
+pub use dirty::DirtyRows;
 pub use parser::Parser;
 pub use row::Row;
 pub use screen::{MouseProtocolEncoding, MouseProtocolMode, Screen};

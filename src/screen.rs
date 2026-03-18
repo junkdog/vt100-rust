@@ -100,6 +100,18 @@ impl Screen {
         (size.rows, size.cols)
     }
 
+    /// Returns a reference to the dirty row bitmap for the active grid.
+    #[must_use]
+    pub fn dirty(&self) -> &crate::dirty::DirtyRows {
+        self.grid().dirty()
+    }
+
+    /// Returns the dirty row bitmap and clears it. Use this to determine
+    /// which rows need re-rendering, then iterate the returned value.
+    pub fn take_dirty(&mut self) -> crate::dirty::DirtyRows {
+        self.grid_mut().take_dirty()
+    }
+
     /// Scrolls to the given position in the scrollback.
     ///
     /// This position indicates the offset from the top of the screen, and
@@ -536,6 +548,13 @@ impl Screen {
         self.grid().visible_rows()
     }
 
+    /// Returns the visible [`Row`](crate::Row) at the given index, if it
+    /// exists.
+    #[must_use]
+    pub fn visible_row(&self, row: u16) -> Option<&crate::row::Row> {
+        self.grid().visible_row(row)
+    }
+
     /// Returns the [`Cell`](crate::Cell) object at the given location in the
     /// terminal, if it exists.
     #[must_use]
@@ -660,10 +679,14 @@ impl Screen {
         self.grid_mut().set_scrollback(0);
         self.set_mode(MODE_ALTERNATE_SCREEN);
         self.alternate_grid.allocate_rows();
+        // switching grids changes all visible content
+        self.grid_mut().dirty_mut().mark_all();
     }
 
     fn exit_alternate_grid(&mut self) {
         self.clear_mode(MODE_ALTERNATE_SCREEN);
+        // switching grids changes all visible content
+        self.grid_mut().dirty_mut().mark_all();
     }
 
     fn save_cursor(&mut self) {
