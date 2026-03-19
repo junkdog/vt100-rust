@@ -17,8 +17,17 @@ impl DirtyRows {
     /// Mark a contiguous range of rows `start..=end` as dirty.
     #[inline]
     pub fn mark_range(&mut self, start: u16, end: u16) {
-        for row in start..=end {
-            self.mark(row);
+        let (s, e) = (start as usize, end as usize);
+        for word in (s / 64)..=(e / 64) {
+            let lo = if word == s / 64 { s % 64 } else { 0 };
+            let hi = if word == e / 64 { e % 64 } else { 63 };
+            let count = hi - lo + 1;
+            let mask = if count >= 64 {
+                u64::MAX
+            } else {
+                ((1u64 << count) - 1) << lo
+            };
+            self.bits[word] |= mask;
         }
     }
 
@@ -122,6 +131,38 @@ mod tests {
         assert!(d.is_dirty(255));
         d.clear();
         assert!(!d.any());
+    }
+
+    #[test]
+    fn mark_range_spans_three_words() {
+        let mut d = DirtyRows::default();
+        d.mark_range(60, 140);
+        // should cover bits in words 0, 1, and 2
+        for row in 60..=140 {
+            assert!(d.is_dirty(row), "row {row} should be dirty");
+        }
+        assert!(!d.is_dirty(59));
+        assert!(!d.is_dirty(141));
+    }
+
+    #[test]
+    fn mark_range_single_row() {
+        let mut d = DirtyRows::default();
+        d.mark_range(42, 42);
+        assert!(d.is_dirty(42));
+        assert!(!d.is_dirty(41));
+        assert!(!d.is_dirty(43));
+    }
+
+    #[test]
+    fn mark_range_full_word() {
+        let mut d = DirtyRows::default();
+        d.mark_range(64, 127);
+        for row in 64..=127 {
+            assert!(d.is_dirty(row), "row {row} should be dirty");
+        }
+        assert!(!d.is_dirty(63));
+        assert!(!d.is_dirty(128));
     }
 
     #[test]
