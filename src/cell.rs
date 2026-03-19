@@ -84,12 +84,14 @@ impl Cell {
     /// Can include multiple unicode characters if combining characters are
     /// used, but will contain at most one character with a non-zero character
     /// width.
-    // Since contents has been constructed by appending chars encoded as UTF-8 it will be valid UTF-8
-    #[allow(clippy::missing_panics_doc)]
+    // SAFETY: contents has been constructed by appending chars encoded
+    // as UTF-8 (via char::encode_utf8), so it is always valid UTF-8.
     #[inline]
     #[must_use]
     pub fn contents(&self) -> &str {
-        std::str::from_utf8(&self.contents[..self.len()]).unwrap()
+        unsafe {
+            std::str::from_utf8_unchecked(&self.contents[..self.len()])
+        }
     }
 
     /// Returns whether the cell contains any text data.
