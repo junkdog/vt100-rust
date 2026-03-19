@@ -30,10 +30,10 @@ impl Row {
         self.wrapped = false;
     }
 
-    /// Returns an iterator over the cells in this row.
+    /// Returns a slice of all cells in this row.
     #[inline]
-    pub fn cells(&self) -> impl Iterator<Item = &crate::Cell> {
-        self.cells.iter()
+    pub fn cells(&self) -> &[crate::Cell] {
+        &self.cells
     }
 
     /// Returns the [`Cell`](crate::Cell) at the given column index, if it
@@ -116,6 +116,7 @@ impl Row {
         let mut prev_col = start;
         for (col, cell) in self
             .cells()
+            .iter()
             .enumerate()
             .skip(usize::from(start))
             .take(usize::from(width))
@@ -184,6 +185,7 @@ impl Row {
         let mut erase: Option<(u16, &crate::attrs::Attrs)> = None;
         for (col, cell) in self
             .cells()
+            .iter()
             .enumerate()
             .skip(usize::from(start))
             .take(usize::from(width))
@@ -340,7 +342,8 @@ impl Row {
         let mut erase: Option<(u16, &crate::attrs::Attrs)> = None;
         for (col, (cell, prev_cell)) in self
             .cells()
-            .zip(prev.cells())
+            .iter()
+            .zip(prev.cells().iter())
             .enumerate()
             .skip(usize::from(start))
             .take(usize::from(width))

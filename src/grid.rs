@@ -174,18 +174,27 @@ impl Grid {
     }
 
     pub fn visible_row(&self, row: u16) -> Option<&crate::row::Row> {
-        self.visible_rows().nth(usize::from(row))
+        let row = usize::from(row);
+        let sb_visible =
+            self.scrollback_offset.min(self.scrollback.len());
+        if row < sb_visible {
+            let sb_start =
+                self.scrollback.len() - self.scrollback_offset;
+            self.scrollback.get(sb_start + row)
+        } else {
+            self.rows.get(row - sb_visible)
+        }
     }
 
     pub fn drawing_row(&self, row: u16) -> Option<&crate::row::Row> {
-        self.drawing_rows().nth(usize::from(row))
+        self.rows.get(usize::from(row))
     }
 
     pub fn drawing_row_mut(
         &mut self,
         row: u16,
     ) -> Option<&mut crate::row::Row> {
-        self.drawing_rows_mut().nth(usize::from(row))
+        self.rows.get_mut(usize::from(row))
     }
 
     pub fn current_row_mut(&mut self) -> &mut crate::row::Row {
