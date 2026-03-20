@@ -1,17 +1,18 @@
 use crate::term::BufWrite as _;
 use compact_str::CompactString;
+use std::collections::VecDeque;
 
 #[derive(Clone, Debug)]
 pub struct Grid {
     size: Size,
     pos: Pos,
     saved_pos: Pos,
-    rows: Vec<crate::row::Row>,
+    rows: VecDeque<crate::row::Row>,
     scroll_top: u16,
     scroll_bottom: u16,
     origin_mode: bool,
     saved_origin_mode: bool,
-    scrollback: std::collections::VecDeque<crate::row::Row>,
+    scrollback: VecDeque<crate::row::Row>,
     scrollback_len: usize,
     scrollback_offset: usize,
     dirty: crate::dirty::DirtyRows,
@@ -23,12 +24,12 @@ impl Grid {
             size,
             pos: Pos::default(),
             saved_pos: Pos::default(),
-            rows: vec![],
+            rows: VecDeque::new(),
             scroll_top: 0,
             scroll_bottom: size.rows - 1,
             origin_mode: false,
             saved_origin_mode: false,
-            scrollback: std::collections::VecDeque::new(),
+            scrollback: VecDeque::new(),
             scrollback_len,
             scrollback_offset: 0,
             dirty: crate::dirty::DirtyRows::default(),
@@ -591,7 +592,8 @@ impl Grid {
         self.dirty.mark_range(self.pos.row, self.scroll_bottom);
         for _ in 0..count {
             self.rows.remove(usize::from(self.scroll_bottom));
-            self.rows.insert(usize::from(self.pos.row), self.new_row());
+            self.rows
+                .insert(usize::from(self.pos.row), self.new_row());
             // self.scroll_bottom is maintained to always be a valid row
             self.rows[usize::from(self.scroll_bottom)].wrap(false);
         }
@@ -600,26 +602,41 @@ impl Grid {
     pub fn delete_lines(&mut self, count: u16) {
         self.dirty.mark_range(self.pos.row, self.scroll_bottom);
         for _ in 0..(count.min(self.size.rows - self.pos.row)) {
-            self.rows
-                .insert(usize::from(self.scroll_bottom) + 1, self.new_row());
+            self.rows.insert(
+                usize::from(self.scroll_bottom) + 1,
+                self.new_row(),
+            );
             self.rows.remove(usize::from(self.pos.row));
         }
     }
 
     pub fn scroll_up(&mut self, count: u16) {
         self.dirty.mark_range(self.scroll_top, self.scroll_bottom);
+        let full_screen = !self.scroll_region_active();
         for _ in 0..(count.min(self.size.rows - self.scroll_top)) {
-            self.rows
-                .insert(usize::from(self.scroll_bottom) + 1, self.new_row());
-            let removed = self.rows.remove(usize::from(self.scroll_top));
-            if self.scrollback_len > 0 && !self.scroll_region_active() {
+            let removed = if full_screen {
+                let removed = self.rows.pop_front().unwrap();
+                self.rows.push_back(self.new_row());
+                removed
+            } else {
+                self.rows.insert(
+                    usize::from(self.scroll_bottom) + 1,
+                    self.new_row(),
+                );
+                self.rows
+                    .remove(usize::from(self.scroll_top))
+                    .unwrap()
+            };
+            if self.scrollback_len > 0 && full_screen {
                 self.scrollback.push_back(removed);
                 while self.scrollback.len() > self.scrollback_len {
                     self.scrollback.pop_front();
                 }
                 if self.scrollback_offset > 0 {
-                    self.scrollback_offset =
-                        self.scrollback.len().min(self.scrollback_offset + 1);
+                    self.scrollback_offset = self
+                        .scrollback
+                        .len()
+                        .min(self.scrollback_offset + 1);
                 }
             }
         }
@@ -627,10 +644,19 @@ impl Grid {
 
     pub fn scroll_down(&mut self, count: u16) {
         self.dirty.mark_range(self.scroll_top, self.scroll_bottom);
+        let full_screen = !self.scroll_region_active();
         for _ in 0..count {
-            self.rows.remove(usize::from(self.scroll_bottom));
-            self.rows
-                .insert(usize::from(self.scroll_top), self.new_row());
+            if full_screen {
+                self.rows.pop_back();
+                self.rows.push_front(self.new_row());
+            } else {
+                self.rows
+                    .remove(usize::from(self.scroll_bottom));
+                self.rows.insert(
+                    usize::from(self.scroll_top),
+                    self.new_row(),
+                );
+            }
             // self.scroll_bottom is maintained to always be a valid row
             self.rows[usize::from(self.scroll_bottom)].wrap(false);
         }
