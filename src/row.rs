@@ -1,4 +1,5 @@
 use crate::term::BufWrite as _;
+use compact_str::CompactString;
 
 #[derive(Clone, Debug)]
 pub struct Row {
@@ -106,7 +107,7 @@ impl Row {
 
     pub fn write_contents(
         &self,
-        contents: &mut String,
+        contents: &mut CompactString,
         start: u16,
         width: u16,
         wrapping: bool,

@@ -1,4 +1,5 @@
 use crate::term::BufWrite as _;
+use compact_str::CompactString;
 
 #[derive(Clone, Debug)]
 pub struct Grid {
@@ -229,7 +230,7 @@ impl Grid {
         self.scrollback_offset = rows.min(self.scrollback.len());
     }
 
-    pub fn write_contents(&self, contents: &mut String) {
+    pub fn write_contents(&self, contents: &mut CompactString) {
         let mut wrapping = false;
         for row in self.visible_rows() {
             row.write_contents(contents, 0, self.size.cols, wrapping);

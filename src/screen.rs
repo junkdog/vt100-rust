@@ -1,4 +1,5 @@
 use crate::term::BufWrite as _;
+use compact_str::CompactString;
 use unicode_width::UnicodeWidthChar as _;
 
 const MODE_APPLICATION_KEYPAD: u8 = 0b0000_0001;
@@ -140,13 +141,13 @@ impl Screen {
     /// This will not include any formatting information, and will be in plain
     /// text format.
     #[must_use]
-    pub fn contents(&self) -> String {
-        let mut contents = String::new();
+    pub fn contents(&self) -> CompactString {
+        let mut contents = CompactString::new("");
         self.write_contents(&mut contents);
         contents
     }
 
-    fn write_contents(&self, contents: &mut String) {
+    fn write_contents(&self, contents: &mut CompactString) {
         self.grid().write_contents(contents);
     }
 
@@ -161,9 +162,9 @@ impl Screen {
         &self,
         start: u16,
         width: u16,
-    ) -> impl Iterator<Item = String> + '_ {
+    ) -> impl Iterator<Item = CompactString> + '_ {
         self.grid().visible_rows().map(move |row| {
-            let mut contents = String::new();
+            let mut contents = CompactString::new("");
             row.write_contents(&mut contents, start, width, false);
             contents
         })
@@ -182,11 +183,11 @@ impl Screen {
         start_col: u16,
         end_row: u16,
         end_col: u16,
-    ) -> String {
+    ) -> CompactString {
         match start_row.cmp(&end_row) {
             std::cmp::Ordering::Less => {
                 let (_, cols) = self.size();
-                let mut contents = String::new();
+                let mut contents = CompactString::new("");
                 for (i, row) in self
                     .grid()
                     .visible_rows()
@@ -221,10 +222,10 @@ impl Screen {
                         .nth(usize::from(start_row))
                         .unwrap_or_default()
                 } else {
-                    String::new()
+                    CompactString::new("")
                 }
             }
-            std::cmp::Ordering::Greater => String::new(),
+            std::cmp::Ordering::Greater => CompactString::new(""),
         }
     }
 

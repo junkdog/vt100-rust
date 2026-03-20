@@ -153,7 +153,7 @@ fn rows() {
     let mut parser = vt100::Parser::default();
     let screen1 = parser.screen().clone();
     assert_eq!(
-        screen1.rows(0, 80).collect::<Vec<String>>(),
+        screen1.rows(0, 80).collect::<Vec<vt100::CompactString>>(),
         vec![
             String::new(),
             String::new(),
@@ -211,7 +211,7 @@ fn rows() {
         x
     });
     assert_eq!(
-        screen1.rows(5, 15).collect::<Vec<String>>(),
+        screen1.rows(5, 15).collect::<Vec<vt100::CompactString>>(),
         vec![
             String::new(),
             String::new(),
@@ -273,7 +273,7 @@ fn rows() {
         .process(b"\x1b[31mfoo\x1b[10;10H\x1b[32mbar\x1b[20;20H\x1b[33mbaz");
     let screen2 = parser.screen().clone();
     assert_eq!(
-        screen2.rows(0, 80).collect::<Vec<String>>(),
+        screen2.rows(0, 80).collect::<Vec<vt100::CompactString>>(),
         vec![
             "foo".to_string(),
             String::new(),
@@ -331,7 +331,7 @@ fn rows() {
         ]
     );
     assert_eq!(
-        screen2.rows(5, 15).collect::<Vec<String>>(),
+        screen2.rows(5, 15).collect::<Vec<vt100::CompactString>>(),
         vec![
             String::new(),
             String::new(),

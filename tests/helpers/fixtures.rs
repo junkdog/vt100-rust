@@ -104,7 +104,7 @@ impl FixtureScreen {
             }
         }
         Self {
-            contents: screen.contents(),
+            contents: screen.contents().to_string(),
             cells,
             cursor_position: screen.cursor_position(),
             application_keypad: screen.application_keypad(),
