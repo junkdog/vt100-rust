@@ -53,6 +53,20 @@ impl Cell {
         self.attrs = a;
     }
 
+    /// Fast path for ASCII characters: skips the `UnicodeWidthChar`
+    /// lookup because single-byte UTF-8 is always width 1 and never
+    /// wide.
+    #[inline]
+    pub(crate) fn set_ascii(
+        &mut self,
+        c: char,
+        a: crate::attrs::Attrs,
+    ) {
+        c.encode_utf8(&mut self.contents[..]);
+        self.len = 1;
+        self.attrs = a;
+    }
+
     pub(crate) fn append(&mut self, c: char) {
         let len = self.len();
         if len >= CONTENT_BYTES - 4 {

@@ -735,6 +735,30 @@ impl Screen {
 
 impl Screen {
     pub(crate) fn text(&mut self, c: char) {
+        // Fast path for ASCII: skip unicode width lookup and
+        // wide-character handling.
+        if c.len_utf8() == 1 {
+            let pos = self.grid().pos();
+            let size = self.grid().size();
+            if pos.col < size.cols {
+                let dominated_by_wide = {
+                    let cell =
+                        self.grid().drawing_cell(pos).unwrap();
+                    cell.is_wide()
+                        || cell.is_wide_continuation()
+                };
+                if !dominated_by_wide {
+                    let attrs = self.attrs;
+                    self.grid_mut()
+                        .drawing_cell_mut(pos)
+                        .unwrap()
+                        .set_ascii(c, attrs);
+                    self.grid_mut().col_inc(1);
+                    return;
+                }
+            }
+        }
+
         let pos = self.grid().pos();
         let size = self.grid().size();
         let attrs = self.attrs;
