@@ -924,7 +924,7 @@ impl Screen {
                     // wide character, so it must have the second half of the
                     // wide character after it.
                     .unwrap();
-                next_cell.set(' ', attrs);
+                next_cell.set(' ', attrs, false);
             }
 
             let cell = self
@@ -935,7 +935,7 @@ impl Screen {
                 // called col_wrap() immediately before this, which ensures
                 // that self.grid().pos().col has a valid value.
                 .unwrap();
-            cell.set(c, attrs);
+            cell.set(c, attrs, width > 1);
             self.grid_mut().col_inc(1);
             if width > 1 {
                 let pos = self.grid().pos();

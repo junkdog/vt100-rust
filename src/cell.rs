@@ -43,13 +43,15 @@ impl Cell {
         usize::from(self.len & LEN_BITS)
     }
 
-    pub(crate) fn set(&mut self, c: char, a: crate::attrs::Attrs) {
+    pub(crate) fn set(
+        &mut self,
+        c: char,
+        a: crate::attrs::Attrs,
+        wide: bool,
+    ) {
         self.len = 0;
         self.append_char(0, c);
-        // strings in this context should always be an arbitrary character
-        // followed by zero or more zero-width characters, so we should only
-        // have to look at the first character
-        self.set_wide(c.width().unwrap_or(1) > 1);
+        self.set_wide(wide);
         self.attrs = a;
     }
 
