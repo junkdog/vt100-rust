@@ -660,6 +660,7 @@ impl Screen {
         self.attrs.inverse()
     }
 
+    #[inline]
     pub(crate) fn grid(&self) -> &crate::grid::Grid {
         if self.mode(MODE_ALTERNATE_SCREEN) {
             &self.alternate_grid
@@ -668,6 +669,7 @@ impl Screen {
         }
     }
 
+    #[inline]
     fn grid_mut(&mut self) -> &mut crate::grid::Grid {
         if self.mode(MODE_ALTERNATE_SCREEN) {
             &mut self.alternate_grid
@@ -708,6 +710,7 @@ impl Screen {
         self.modes &= !mode;
     }
 
+    #[inline]
     fn mode(&self, mode: u8) -> bool {
         self.modes & mode != 0
     }

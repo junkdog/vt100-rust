@@ -78,6 +78,7 @@ impl Grid {
         self.dirty.mark_all();
     }
 
+    #[inline]
     pub fn size(&self) -> Size {
         self.size
     }
@@ -120,6 +121,7 @@ impl Grid {
         self.dirty.mark_all();
     }
 
+    #[inline]
     pub fn pos(&self) -> Pos {
         self.pos
     }
@@ -187,10 +189,12 @@ impl Grid {
         }
     }
 
+    #[inline]
     pub fn drawing_row(&self, row: u16) -> Option<&crate::row::Row> {
         self.rows.get(usize::from(row))
     }
 
+    #[inline]
     pub fn drawing_row_mut(
         &mut self,
         row: u16,
@@ -208,10 +212,12 @@ impl Grid {
         self.visible_row(pos.row).and_then(|r| r.get(pos.col))
     }
 
+    #[inline]
     pub fn drawing_cell(&self, pos: Pos) -> Option<&crate::Cell> {
         self.drawing_row(pos.row).and_then(|r| r.get(pos.col))
     }
 
+    #[inline]
     pub fn drawing_cell_mut(&mut self, pos: Pos) -> Option<&mut crate::Cell> {
         self.dirty.mark(pos.row);
         self.drawing_row_mut(pos.row)
@@ -695,6 +701,7 @@ impl Grid {
         self.row_clamp();
     }
 
+    #[inline]
     pub fn col_inc(&mut self, count: u16) {
         self.pos.col = self.pos.col.saturating_add(count);
     }
