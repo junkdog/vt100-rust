@@ -1285,6 +1285,81 @@ impl Screen {
             return;
         }
 
+        // Fast path for single-parameter SGR (covers reset, bold,
+        // italic, underline, basic colors, etc.)
+        if params.len() == 1 {
+            let param = params.iter().next().unwrap();
+            if let &[n] = param {
+                match n {
+                    0 => {
+                        self.attrs = crate::attrs::Attrs::default();
+                        return;
+                    }
+                    1 => { self.attrs.set_bold(); return; }
+                    2 => { self.attrs.set_dim(); return; }
+                    3 => { self.attrs.set_italic(true); return; }
+                    4 => {
+                        self.attrs.set_underline(true);
+                        return;
+                    }
+                    7 => { self.attrs.set_inverse(true); return; }
+                    22 => {
+                        self.attrs.set_normal_intensity();
+                        return;
+                    }
+                    23 => {
+                        self.attrs.set_italic(false);
+                        return;
+                    }
+                    24 => {
+                        self.attrs.set_underline(false);
+                        return;
+                    }
+                    27 => {
+                        self.attrs.set_inverse(false);
+                        return;
+                    }
+                    30..=37 => {
+                        if let Some(i) = u16_to_u8(n) {
+                            self.attrs.fgcolor =
+                                crate::Color::Idx(i - 30);
+                            return;
+                        }
+                    }
+                    39 => {
+                        self.attrs.fgcolor = crate::Color::Default;
+                        return;
+                    }
+                    40..=47 => {
+                        if let Some(i) = u16_to_u8(n) {
+                            self.attrs.bgcolor =
+                                crate::Color::Idx(i - 40);
+                            return;
+                        }
+                    }
+                    49 => {
+                        self.attrs.bgcolor = crate::Color::Default;
+                        return;
+                    }
+                    90..=97 => {
+                        if let Some(i) = u16_to_u8(n) {
+                            self.attrs.fgcolor =
+                                crate::Color::Idx(i - 82);
+                            return;
+                        }
+                    }
+                    100..=107 => {
+                        if let Some(i) = u16_to_u8(n) {
+                            self.attrs.bgcolor =
+                                crate::Color::Idx(i - 92);
+                            return;
+                        }
+                    }
+                    _ => {} // fall through to general path
+                }
+            }
+        }
+
         let mut iter = params.iter();
 
         macro_rules! next_param {
