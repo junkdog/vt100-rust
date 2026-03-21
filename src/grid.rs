@@ -590,54 +590,80 @@ impl Grid {
 
     pub fn insert_lines(&mut self, count: u16) {
         self.dirty.mark_range(self.pos.row, self.scroll_bottom);
-        for _ in 0..count {
-            self.rows.remove(usize::from(self.scroll_bottom));
-            self.rows
-                .insert(usize::from(self.pos.row), self.new_row());
-            // self.scroll_bottom is maintained to always be a valid row
-            self.rows[usize::from(self.scroll_bottom)].wrap(false);
+        let count = usize::from(count);
+        let pos_row = usize::from(self.pos.row);
+        let bottom = usize::from(self.scroll_bottom);
+        let rows = self.rows.make_contiguous();
+        let region = &mut rows[pos_row..=bottom];
+        let count = count.min(region.len());
+        region.rotate_right(count);
+        for row in &mut region[..count] {
+            row.clear(crate::attrs::Attrs::default());
         }
+        // self.scroll_bottom is maintained to always be a valid row
+        region[region.len() - 1].wrap(false);
     }
 
     pub fn delete_lines(&mut self, count: u16) {
         self.dirty.mark_range(self.pos.row, self.scroll_bottom);
-        for _ in 0..(count.min(self.size.rows - self.pos.row)) {
-            self.rows.insert(
-                usize::from(self.scroll_bottom) + 1,
-                self.new_row(),
-            );
-            self.rows.remove(usize::from(self.pos.row));
+        let count =
+            usize::from(count.min(self.size.rows - self.pos.row));
+        let pos_row = usize::from(self.pos.row);
+        let bottom = usize::from(self.scroll_bottom);
+        let rows = self.rows.make_contiguous();
+        let region = &mut rows[pos_row..=bottom];
+        let count = count.min(region.len());
+        region.rotate_left(count);
+        let clear_start = region.len() - count;
+        for row in &mut region[clear_start..] {
+            row.clear(crate::attrs::Attrs::default());
         }
     }
 
     pub fn scroll_up(&mut self, count: u16) {
         self.dirty.mark_range(self.scroll_top, self.scroll_bottom);
         let full_screen = !self.scroll_region_active();
-        for _ in 0..(count.min(self.size.rows - self.scroll_top)) {
-            let removed = if full_screen {
-                let removed = self.rows.pop_front().unwrap();
-                self.rows.push_back(self.new_row());
-                removed
-            } else {
-                self.rows.insert(
-                    usize::from(self.scroll_bottom) + 1,
-                    self.new_row(),
-                );
-                self.rows
-                    .remove(usize::from(self.scroll_top))
-                    .unwrap()
-            };
-            if self.scrollback_len > 0 && full_screen {
-                self.scrollback.push_back(removed);
-                while self.scrollback.len() > self.scrollback_len {
-                    self.scrollback.pop_front();
+        let effective_count = count.min(self.size.rows - self.scroll_top);
+
+        if full_screen {
+            for _ in 0..effective_count {
+                let mut removed = self.rows.pop_front().unwrap();
+                if self.scrollback_len > 0 {
+                    // reuse evicted scrollback row when at capacity
+                    let new_row =
+                        if self.scrollback.len() >= self.scrollback_len {
+                            let mut reuse =
+                                self.scrollback.pop_front().unwrap();
+                            reuse.clear(crate::attrs::Attrs::default());
+                            reuse
+                        } else {
+                            self.new_row()
+                        };
+                    self.rows.push_back(new_row);
+                    self.scrollback.push_back(removed);
+                    if self.scrollback_offset > 0 {
+                        self.scrollback_offset = self
+                            .scrollback
+                            .len()
+                            .min(self.scrollback_offset + 1);
+                    }
+                } else {
+                    // no scrollback: reuse the removed row directly
+                    removed.clear(crate::attrs::Attrs::default());
+                    self.rows.push_back(removed);
                 }
-                if self.scrollback_offset > 0 {
-                    self.scrollback_offset = self
-                        .scrollback
-                        .len()
-                        .min(self.scrollback_offset + 1);
-                }
+            }
+        } else {
+            let count = usize::from(effective_count);
+            let rows = self.rows.make_contiguous();
+            let top = usize::from(self.scroll_top);
+            let bottom = usize::from(self.scroll_bottom);
+            let region = &mut rows[top..=bottom];
+            let count = count.min(region.len());
+            region.rotate_left(count);
+            let clear_start = region.len() - count;
+            for row in &mut region[clear_start..] {
+                row.clear(crate::attrs::Attrs::default());
             }
         }
     }
@@ -645,20 +671,28 @@ impl Grid {
     pub fn scroll_down(&mut self, count: u16) {
         self.dirty.mark_range(self.scroll_top, self.scroll_bottom);
         let full_screen = !self.scroll_region_active();
-        for _ in 0..count {
-            if full_screen {
-                self.rows.pop_back();
-                self.rows.push_front(self.new_row());
-            } else {
-                self.rows
-                    .remove(usize::from(self.scroll_bottom));
-                self.rows.insert(
-                    usize::from(self.scroll_top),
-                    self.new_row(),
-                );
+
+        if full_screen {
+            for _ in 0..count {
+                let mut removed = self.rows.pop_back().unwrap();
+                removed.clear(crate::attrs::Attrs::default());
+                self.rows.push_front(removed);
+                self.rows[usize::from(self.scroll_bottom)]
+                    .wrap(false);
+            }
+        } else {
+            let count = usize::from(count);
+            let rows = self.rows.make_contiguous();
+            let top = usize::from(self.scroll_top);
+            let bottom = usize::from(self.scroll_bottom);
+            let region = &mut rows[top..=bottom];
+            let count = count.min(region.len());
+            region.rotate_right(count);
+            for row in &mut region[..count] {
+                row.clear(crate::attrs::Attrs::default());
             }
             // self.scroll_bottom is maintained to always be a valid row
-            self.rows[usize::from(self.scroll_bottom)].wrap(false);
+            region[region.len() - 1].wrap(false);
         }
     }
 
