@@ -47,6 +47,7 @@ impl<CB: crate::callbacks::Callbacks> Parser<CB> {
     /// in-memory terminal state.
     pub fn process(&mut self, bytes: &[u8]) {
         self.parser.advance(&mut self.screen, bytes);
+        self.screen.flush_print_buf();
     }
 
     /// Returns a reference to a [`Screen`](crate::Screen) object containing

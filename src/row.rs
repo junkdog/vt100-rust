@@ -37,6 +37,12 @@ impl Row {
         &self.cells
     }
 
+    /// Returns a mutable slice of all cells in this row.
+    #[inline]
+    pub(crate) fn cells_mut(&mut self) -> &mut [crate::Cell] {
+        &mut self.cells
+    }
+
     /// Returns the [`Cell`](crate::Cell) at the given column index, if it
     /// exists.
     #[inline]

@@ -2,9 +2,17 @@ const BASE64: &[u8] =
     b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/=";
 const CLIPBOARD_SELECTOR: &[u8] = b"cpqs01234567";
 
+/// Size of the inline buffer used to batch consecutive ASCII
+/// `print()` calls before flushing to the grid.
+const PRINT_BUF_LEN: usize = 128;
+
 pub struct WrappedScreen<CB: crate::callbacks::Callbacks = ()> {
     pub screen: crate::screen::Screen,
     pub callbacks: CB,
+    /// Inline buffer for consecutive ASCII print() calls.
+    /// Flushed on any non-print callback or when full.
+    print_buf: [u8; PRINT_BUF_LEN],
+    print_buf_used: u8,
 }
 
 impl WrappedScreen<()> {
@@ -26,12 +34,50 @@ impl<CB: crate::callbacks::Callbacks> WrappedScreen<CB> {
                 scrollback_len,
             ),
             callbacks,
+            print_buf: [0; PRINT_BUF_LEN],
+            print_buf_used: 0,
+        }
+    }
+
+    /// Flush any buffered ASCII characters to the grid.
+    /// Single-byte flushes go through the per-char `text()` path
+    /// (which uses `try_write_ascii`) to avoid batch-setup overhead
+    /// on the very short runs typical of heavily-styled output.
+    #[inline(always)]
+    pub fn flush_print_buf(&mut self) {
+        let n = self.print_buf_used;
+        if n == 0 {
+            return;
+        }
+        self.print_buf_used = 0;
+        if n == 1 {
+            self.screen.text(char::from(self.print_buf[0]));
+        } else {
+            self.screen
+                .text_ascii_batch(&self.print_buf[..usize::from(n)]);
         }
     }
 }
 
 impl<CB: crate::callbacks::Callbacks> vte::Perform for WrappedScreen<CB> {
     fn print(&mut self, c: char) {
+        // Fast path: buffer printable ASCII and defer the grid write.
+        if c >= ' ' && c <= '~' {
+            let n = usize::from(self.print_buf_used);
+            if n < PRINT_BUF_LEN {
+                self.print_buf[n] = c as u8;
+                self.print_buf_used += 1;
+                return;
+            }
+            // Buffer full — flush and start fresh.
+            self.flush_print_buf();
+            self.print_buf[0] = c as u8;
+            self.print_buf_used = 1;
+            return;
+        }
+
+        // Non-ASCII: flush anything buffered, then handle normally.
+        self.flush_print_buf();
         if c == '\u{fffd}' || ('\u{80}'..'\u{a0}').contains(&c) {
             self.callbacks.unhandled_char(&mut self.screen, c);
         } else {
@@ -40,6 +86,7 @@ impl<CB: crate::callbacks::Callbacks> vte::Perform for WrappedScreen<CB> {
     }
 
     fn execute(&mut self, b: u8) {
+        self.flush_print_buf();
         match b {
             7 => self.callbacks.audible_bell(&mut self.screen),
             8 => self.screen.bs(),
@@ -56,6 +103,7 @@ impl<CB: crate::callbacks::Callbacks> vte::Perform for WrappedScreen<CB> {
     }
 
     fn esc_dispatch(&mut self, intermediates: &[u8], _ignore: bool, b: u8) {
+        self.flush_print_buf();
         if let Some(i) = intermediates.first() {
             self.callbacks.unhandled_escape(
                 &mut self.screen,
@@ -91,6 +139,7 @@ impl<CB: crate::callbacks::Callbacks> vte::Perform for WrappedScreen<CB> {
         _ignore: bool,
         c: char,
     ) {
+        self.flush_print_buf();
         let unhandled = |screen: &mut crate::screen::Screen| {
             self.callbacks.unhandled_csi(
                 screen,
@@ -196,6 +245,7 @@ impl<CB: crate::callbacks::Callbacks> vte::Perform for WrappedScreen<CB> {
     }
 
     fn osc_dispatch(&mut self, params: &[&[u8]], _bel_terminated: bool) {
+        self.flush_print_buf();
         match params {
             [b"0", s] => {
                 self.callbacks.set_window_icon_name(&mut self.screen, s);

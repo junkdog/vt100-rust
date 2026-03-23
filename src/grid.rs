@@ -179,11 +179,9 @@ impl Grid {
 
     pub fn visible_row(&self, row: u16) -> Option<&crate::row::Row> {
         let row = usize::from(row);
-        let sb_visible =
-            self.scrollback_offset.min(self.scrollback.len());
+        let sb_visible = self.scrollback_offset.min(self.scrollback.len());
         if row < sb_visible {
-            let sb_start =
-                self.scrollback.len() - self.scrollback_offset;
+            let sb_start = self.scrollback.len() - self.scrollback_offset;
             self.scrollback.get(sb_start + row)
         } else {
             self.rows.get(row - sb_visible)
@@ -606,8 +604,7 @@ impl Grid {
 
     pub fn delete_lines(&mut self, count: u16) {
         self.dirty.mark_range(self.pos.row, self.scroll_bottom);
-        let count =
-            usize::from(count.min(self.size.rows - self.pos.row));
+        let count = usize::from(count.min(self.size.rows - self.pos.row));
         let pos_row = usize::from(self.pos.row);
         let bottom = usize::from(self.scroll_bottom);
         let rows = self.rows.make_contiguous();
@@ -630,15 +627,15 @@ impl Grid {
                 let mut removed = self.rows.pop_front().unwrap();
                 if self.scrollback_len > 0 {
                     // reuse evicted scrollback row when at capacity
-                    let new_row =
-                        if self.scrollback.len() >= self.scrollback_len {
-                            let mut reuse =
-                                self.scrollback.pop_front().unwrap();
-                            reuse.clear(crate::attrs::Attrs::default());
-                            reuse
-                        } else {
-                            self.new_row()
-                        };
+                    let new_row = if self.scrollback.len()
+                        >= self.scrollback_len
+                    {
+                        let mut reuse = self.scrollback.pop_front().unwrap();
+                        reuse.clear(crate::attrs::Attrs::default());
+                        reuse
+                    } else {
+                        self.new_row()
+                    };
                     self.rows.push_back(new_row);
                     self.scrollback.push_back(removed);
                     if self.scrollback_offset > 0 {
@@ -677,8 +674,7 @@ impl Grid {
                 let mut removed = self.rows.pop_back().unwrap();
                 removed.clear(crate::attrs::Attrs::default());
                 self.rows.push_front(removed);
-                self.rows[usize::from(self.scroll_bottom)]
-                    .wrap(false);
+                self.rows[usize::from(self.scroll_bottom)].wrap(false);
             }
         } else {
             let count = usize::from(count);
@@ -759,6 +755,67 @@ impl Grid {
     pub fn row_set(&mut self, i: u16) {
         self.pos.row = i;
         self.row_clamp();
+    }
+
+    /// Single-access ASCII write: check for wide chars, write the
+    /// cell, mark dirty, and advance the cursor in one grid lookup.
+    /// Returns `false` when the caller must use the full `text()`
+    /// path (cursor past end-of-line, or cell is wide).
+    #[inline(always)]
+    pub fn try_write_ascii(
+        &mut self,
+        c: char,
+        attrs: crate::attrs::Attrs,
+    ) -> bool {
+        let pos = self.pos;
+        if pos.col >= self.size.cols {
+            return false;
+        }
+        let row = match self.rows.get_mut(usize::from(pos.row)) {
+            Some(r) => r,
+            None => return false,
+        };
+        let cell = &mut row.cells_mut()[usize::from(pos.col)];
+        if cell.is_wide() || cell.is_wide_continuation() {
+            return false;
+        }
+        cell.set_ascii(c, attrs);
+        self.dirty.mark(pos.row);
+        self.pos.col += 1;
+        true
+    }
+
+    /// Writes a batch of ASCII bytes as cells starting at the current
+    /// cursor column on the current row. Marks the row dirty once.
+    /// Caller must ensure the batch fits on the current row
+    /// (`bytes.len() <= cols - pos.col`).
+    #[inline]
+    pub fn write_ascii_cells(
+        &mut self,
+        bytes: &[u8],
+        attrs: crate::attrs::Attrs,
+    ) {
+        let col = usize::from(self.pos.col);
+        let row_idx = self.pos.row;
+
+        self.dirty.mark(row_idx);
+        let row = self.drawing_row_mut(row_idx).unwrap();
+        let cells = row.cells_mut();
+
+        // If the cell just past the write range is a wide-continuation,
+        // clear it: its wide-char partner is about to be overwritten.
+        let end = col + bytes.len();
+        if end < cells.len() && cells[end].is_wide_continuation() {
+            let a = *cells[end].attrs();
+            cells[end].clear(a);
+        }
+
+        for (i, &b) in bytes.iter().enumerate() {
+            cells[col + i].set_ascii_byte(b, attrs);
+        }
+
+        // we limit cols to u16, so this can't overflow
+        self.pos.col = (col + bytes.len()) as u16;
     }
 
     #[inline]

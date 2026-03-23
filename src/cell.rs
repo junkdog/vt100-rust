@@ -59,12 +59,18 @@ impl Cell {
     /// lookup because single-byte UTF-8 is always width 1 and never
     /// wide.
     #[inline]
-    pub(crate) fn set_ascii(
-        &mut self,
-        c: char,
-        a: crate::attrs::Attrs,
-    ) {
+    pub(crate) fn set_ascii(&mut self, c: char, a: crate::attrs::Attrs) {
         c.encode_utf8(&mut self.contents[..]);
+        self.len = 1;
+        self.attrs = a;
+    }
+
+    /// Fastest path for ASCII: takes a raw byte, avoids
+    /// `char::encode_utf8`. Also clears wide/continuation flags
+    /// (len = 1 has high bits clear).
+    #[inline]
+    pub(crate) fn set_ascii_byte(&mut self, b: u8, a: crate::attrs::Attrs) {
+        self.contents[0] = b;
         self.len = 1;
         self.attrs = a;
     }
@@ -105,9 +111,7 @@ impl Cell {
     #[inline]
     #[must_use]
     pub fn contents(&self) -> &str {
-        unsafe {
-            std::str::from_utf8_unchecked(&self.contents[..self.len()])
-        }
+        unsafe { std::str::from_utf8_unchecked(&self.contents[..self.len()]) }
     }
 
     /// Returns whether the cell contains any text data.

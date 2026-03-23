@@ -737,28 +737,59 @@ impl Screen {
 }
 
 impl Screen {
-    pub(crate) fn text(&mut self, c: char) {
-        // Fast path for ASCII: skip unicode width lookup and
-        // wide-character handling.
-        if c.len_utf8() == 1 {
+    /// Batch-write printable ASCII bytes (0x20..=0x7E) directly to
+    /// the grid, handling line-wrap. Falls back to the per-char
+    /// `text()` path when the cursor sits on a wide character.
+    pub(crate) fn text_ascii_batch(&mut self, bytes: &[u8]) {
+        let mut i = 0;
+        while i < bytes.len() {
             let pos = self.grid().pos();
             let size = self.grid().size();
-            if pos.col < size.cols {
-                let dominated_by_wide = {
-                    let cell =
-                        self.grid().drawing_cell(pos).unwrap();
-                    cell.is_wide()
-                        || cell.is_wide_continuation()
-                };
-                if !dominated_by_wide {
-                    let attrs = self.attrs;
-                    self.grid_mut()
-                        .drawing_cell_mut(pos)
-                        .unwrap()
-                        .set_ascii(c, attrs);
-                    self.grid_mut().col_inc(1);
-                    return;
+
+            // Cursor past end of line → need to wrap first.
+            if pos.col >= size.cols {
+                let last = self
+                    .grid()
+                    .drawing_cell(crate::grid::Pos {
+                        row: pos.row,
+                        col: size.cols - 1,
+                    })
+                    .unwrap();
+                let wrap = last.has_contents() || last.is_wide_continuation();
+                self.grid_mut().col_wrap(1, wrap);
+                continue;
+            }
+
+            // If the starting cell is part of a wide character,
+            // delegate to the per-char path which clears the pair.
+            {
+                let cell = self.grid().drawing_cell(pos).unwrap();
+                if cell.is_wide() || cell.is_wide_continuation() {
+                    self.text(char::from(bytes[i]));
+                    i += 1;
+                    continue;
                 }
+            }
+
+            // Write as many bytes as fit on this row in one shot.
+            let remaining = usize::from(size.cols - pos.col);
+            let chunk = remaining.min(bytes.len() - i);
+            let attrs = self.attrs;
+            self.grid_mut()
+                .write_ascii_cells(&bytes[i..i + chunk], attrs);
+            i += chunk;
+        }
+    }
+
+    pub(crate) fn text(&mut self, c: char) {
+        // Fast path for ASCII: single grid access that checks for
+        // wide chars, writes the cell, marks dirty, and advances the
+        // cursor.  Falls through to the general path on end-of-line
+        // or wide-character overlap.
+        if c.len_utf8() == 1 {
+            let attrs = self.attrs;
+            if self.grid_mut().try_write_ascii(c, attrs) {
+                return;
             }
         }
 
@@ -1295,14 +1326,26 @@ impl Screen {
                         self.attrs = crate::attrs::Attrs::default();
                         return;
                     }
-                    1 => { self.attrs.set_bold(); return; }
-                    2 => { self.attrs.set_dim(); return; }
-                    3 => { self.attrs.set_italic(true); return; }
+                    1 => {
+                        self.attrs.set_bold();
+                        return;
+                    }
+                    2 => {
+                        self.attrs.set_dim();
+                        return;
+                    }
+                    3 => {
+                        self.attrs.set_italic(true);
+                        return;
+                    }
                     4 => {
                         self.attrs.set_underline(true);
                         return;
                     }
-                    7 => { self.attrs.set_inverse(true); return; }
+                    7 => {
+                        self.attrs.set_inverse(true);
+                        return;
+                    }
                     22 => {
                         self.attrs.set_normal_intensity();
                         return;
@@ -1321,8 +1364,7 @@ impl Screen {
                     }
                     30..=37 => {
                         if let Some(i) = u16_to_u8(n) {
-                            self.attrs.fgcolor =
-                                crate::Color::Idx(i - 30);
+                            self.attrs.fgcolor = crate::Color::Idx(i - 30);
                             return;
                         }
                     }
@@ -1332,8 +1374,7 @@ impl Screen {
                     }
                     40..=47 => {
                         if let Some(i) = u16_to_u8(n) {
-                            self.attrs.bgcolor =
-                                crate::Color::Idx(i - 40);
+                            self.attrs.bgcolor = crate::Color::Idx(i - 40);
                             return;
                         }
                     }
@@ -1343,15 +1384,13 @@ impl Screen {
                     }
                     90..=97 => {
                         if let Some(i) = u16_to_u8(n) {
-                            self.attrs.fgcolor =
-                                crate::Color::Idx(i - 82);
+                            self.attrs.fgcolor = crate::Color::Idx(i - 82);
                             return;
                         }
                     }
                     100..=107 => {
                         if let Some(i) = u16_to_u8(n) {
-                            self.attrs.bgcolor =
-                                crate::Color::Idx(i - 92);
+                            self.attrs.bgcolor = crate::Color::Idx(i - 92);
                             return;
                         }
                     }
